@@ -5,15 +5,14 @@ import com.example.meetpro.OAuth.authentication.domain.oauth.OAuthInfoResponse;
 import com.example.meetpro.OAuth.authentication.domain.oauth.OAuthLoginParams;
 import com.example.meetpro.OAuth.member.OAuthProvider;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
-
-import java.net.http.HttpHeaders;
+import org.springframework.http.HttpHeaders;
 
 @Component
 @RequiredArgsConstructor

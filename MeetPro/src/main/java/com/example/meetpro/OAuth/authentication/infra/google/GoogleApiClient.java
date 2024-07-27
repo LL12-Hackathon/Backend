@@ -5,7 +5,7 @@ import com.example.meetpro.OAuth.authentication.domain.oauth.OAuthInfoResponse;
 import com.example.meetpro.OAuth.authentication.domain.oauth.OAuthLoginParams;
 import com.example.meetpro.OAuth.member.OAuthProvider;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
