@@ -1,5 +1,5 @@
 package com.example.meetpro.OAuth.member;
 
 public enum OAuthProvider {
-    KAKAO, NAVER, GOOGLE
+    KAKAO, NAVER
 }

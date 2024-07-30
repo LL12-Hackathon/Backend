@@ -1,4 +1,4 @@
-package com.example.meetpro.OAuth.authentication.infra.google;
+package com.example.meetpro.google;
 
 import com.example.meetpro.OAuth.authentication.domain.oauth.OAuthInfoResponse;
 import com.example.meetpro.OAuth.member.OAuthProvider;

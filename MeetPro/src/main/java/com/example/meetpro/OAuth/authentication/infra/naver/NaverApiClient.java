@@ -36,7 +36,7 @@ public class NaverApiClient implements OAuthApiClient {
 
     @Override
     public OAuthProvider oAuthProvider(){
-        return oAuthProvider.NAVER;
+        return OAuthProvider.NAVER;
     }
 
     @Override

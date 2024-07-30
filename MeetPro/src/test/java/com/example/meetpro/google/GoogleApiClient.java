@@ -1,4 +1,4 @@
-package com.example.meetpro.OAuth.authentication.infra.google;
+package com.example.meetpro.google;
 
 import com.example.meetpro.OAuth.authentication.domain.oauth.OAuthApiClient;
 import com.example.meetpro.OAuth.authentication.domain.oauth.OAuthInfoResponse;
@@ -10,7 +10,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 

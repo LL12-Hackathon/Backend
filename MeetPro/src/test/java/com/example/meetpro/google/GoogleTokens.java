@@ -1,4 +1,4 @@
-package com.example.meetpro.OAuth.authentication.infra.google;
+package com.example.meetpro.google;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;

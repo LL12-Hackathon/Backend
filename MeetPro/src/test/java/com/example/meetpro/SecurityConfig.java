@@ -1,4 +1,4 @@
-package com.example.meetpro.OAuth.config;
+package com.example.meetpro;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,8 +15,16 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(authorizeRequests ->
                         authorizeRequests
-                                .requestMatchers("/", "/login**", "/error**").permitAll()
+                                .requestMatchers("/", "/login**", "/error**", "/api/auth/**").permitAll()
                                 .anyRequest().authenticated()
+                )
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/auth/**")
+                )
+                .formLogin(formLogin ->
+                        formLogin
+                                .loginPage("/login")
+                                .permitAll()
                 )
                 .oauth2Login(oauth2Login ->
                         oauth2Login
