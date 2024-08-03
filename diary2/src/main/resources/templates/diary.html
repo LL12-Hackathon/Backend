@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>다이어리</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="main.js"></script> <!-- JavaScript 파일 불러오기 -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #entry-form {
+            margin: 20px auto;
+            padding: 20px;
+            width: 300px;
+            background-color: #f0f8ff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        #entries {
+            margin: 20px auto;
+            padding: 20px;
+            width: 300px;
+            background-color: #f0f8ff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .delete-button {
+            background-color: #f44336;
+            color: white;
+            margin-left: 10px;
+        }
+        .delete-button:hover {
+            background-color: #e53935;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">다이어리</h1>
+
+<button id="show-entry-form" style="display: block; margin: 20px auto;">일기 작성</button>
+
+<div id="entry-form">
+    <h2>일기 작성</h2>
+    <input type="hidden" id="entry-id">
+    <input type="date" id="entry-date"><br>
+    <input type="text" id="entry-title" placeholder="제목"><br>
+    <textarea id="entry-content" placeholder="내용"></textarea><br>
+    <button onclick="saveEntry()">저장</button>
+</div>
+
+<div id="entries"></div>
+
+<script>
+    $(document).ready(function() {
+        console.log("Document ready");
+        $('#show-entry-form').click(function() {
+            $('#entry-form').toggle();
+        });
+
+        loadEntries(); // 페이지 로드 시 일기 목록 불러오기
+    });
+
+    function loadEntries() {
+        $.get('/api/diary', function(data) {
+            console.log("Entries loaded:", data);
+            $('#entries').empty();
+            if (data.length === 0) {
+                $('#entries').append('<p>작성된 일기가 없습니다.</p>');
+            } else {
+                data.forEach(entry => {
+                    $('#entries').append(`
+                        <div id="entry-${entry.id}">
+                            <h3>${entry.title}</h3>
+                            <p>${entry.content}</p>
+                            <p><small>${entry.date}</small></p>
+                            <button onclick="editEntry(${entry.id})">수정</button>
+                            <button class="delete-button" onclick="deleteEntry(${entry.id})">삭제</button>
+                        </div>
+                    `);
+                });
+            }
+        }).fail(function() {
+            $('#entries').append('<p>일기를 불러오는 중 오류가 발생했습니다.</p>');
+        });
+    }
+
+    function saveEntry() {
+        const entry = {
+            date: $('#entry-date').val(),
+            title: $('#entry-title').val(),
+            content: $('#entry-content').val()
+        };
+        const id = $('#entry-id').val();
+
+        if (id) {
+            $.ajax({
+                url: `/api/diary/${id}`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(entry),
+                success: function() {
+                    loadEntries();
+                    $('#entry-form').hide();
+                    clearForm();
+                }
+            });
+        } else {
+            $.ajax({
+                url: '/api/diary',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(entry),
+                success: function() {
+                    loadEntries();
+                    $('#entry-form').hide();
+                    clearForm();
+                }
+            });
+        }
+    }
+
+    function editEntry(id) {
+        $.get(`/api/diary/entry/${id}`, function(entry) {
+            $('#entry-id').val(entry.id);
+            $('#entry-date').val(entry.date);
+            $('#entry-title').val(entry.title);
+            $('#entry-content').val(entry.content);
+            $('#entry-form').show();
+        }).fail(function() {
+            alert('일기를 불러오는 중 오류가 발생했습니다.');
+        });
+    }
+
+    function deleteEntry(id) {
+        $.ajax({
+            url: `/api/diary/${id}`,
+            type: 'DELETE',
+            success: function() {
+                loadEntries();
+            },
+            error: function() {
+                alert('일기 삭제 중 오류가 발생했습니다.');
+            }
+        });
+    }
+
+    function clearForm() {
+        $('#entry-id').val('');
+        $('#entry-date').val('');
+        $('#entry-title').val('');
+        $('#entry-content').val('');
+    }
+</script>
+</body>
+</html>
