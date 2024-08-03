@@ -1,8 +1,10 @@
 package com.example.meetpro.service;
 
 import com.example.meetpro.domain.Member;
+import com.example.meetpro.domain.MemberRole;
 import com.example.meetpro.dto.JoinRequest;
 import com.example.meetpro.dto.LoginRequest;
+import com.example.meetpro.dto.member.MemberCntDto;
 import com.example.meetpro.repository.MemberRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +54,8 @@ public class MemberService {
         return findMember;
     }
 
+
+
     public Member getLoginMemberById(Long memberId){
         if(memberId == null) return null;
 
@@ -66,4 +70,12 @@ public class MemberService {
         return memberRepository.findByLoginId(loginId);
 
     }
+    public MemberCntDto getUserCnt() {
+        return MemberCntDto.builder()
+                .totalMemberCnt(memberRepository.count())
+                .totalSeniorCnt(memberRepository.countByRole(MemberRole.ADMIN))
+                .totalAdminCnt(memberRepository.countByRole(MemberRole.ADMIN))
+                .build();
+    }
+
 }

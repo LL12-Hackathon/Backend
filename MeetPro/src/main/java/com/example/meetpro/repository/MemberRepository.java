@@ -1,5 +1,6 @@
 package com.example.meetpro.repository;
 
+import com.example.meetpro.domain.MemberRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.example.meetpro.domain.Member;
 
@@ -9,4 +10,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     // 로그인 ID를 갖는 객체 반환
     Member findByLoginId(String loginId);
+
+    boolean existsByNickname(String nickname);
+    Long countByRole(MemberRole memberRole);
 }

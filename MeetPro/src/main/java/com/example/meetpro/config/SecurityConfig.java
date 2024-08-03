@@ -14,9 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @RequiredArgsConstructor
 public class SecurityConfig {
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
-
-        // 접근 권한 설정
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests((auth) -> auth
                         .requestMatchers("/oauth-login/admin").hasRole(MemberRole.ADMIN.name())
@@ -24,7 +22,6 @@ public class SecurityConfig {
                         .anyRequest().permitAll()
                 );
 
-        // 폼 로그인 방식 설정
         http
                 .formLogin((auth) -> auth.loginPage("/oauth-login/login")
                         .loginProcessingUrl("/oauth-login/loginProc")
@@ -34,7 +31,6 @@ public class SecurityConfig {
                         .failureUrl("/oauth-login")
                         .permitAll());
 
-        // OAuth 2.0 로그인 방식 설정
         http
                 .oauth2Login((auth) -> auth.loginPage("/oauth-login/login")
                         .defaultSuccessUrl("/oauth-login")
@@ -50,7 +46,7 @@ public class SecurityConfig {
 
         return http.build();
     }
-
+    // bcrpytpasswordencoder
     @Bean
     public BCryptPasswordEncoder bCryptPasswordEncoder(){
 

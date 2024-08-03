@@ -4,6 +4,8 @@ import com.example.meetpro.dto.JoinRequest;
 import com.example.meetpro.service.MemberService;
 import com.example.meetpro.domain.Member;
 import com.example.meetpro.dto.LoginRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -84,6 +86,8 @@ public class SecurityLoginController {
         model.addAttribute("loginRequest", new LoginRequest());
         return "login";
     }
+
+
 
     @GetMapping("/info")
     public String memberInfo(Authentication auth, Model model) {
