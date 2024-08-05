@@ -25,6 +25,9 @@ public class MemberService {
         return memberRepository.existsByLoginId(loginId);
     }
 
+    public void saveMember(Member member) {
+        memberRepository.save(member);
+    }
 
     public void join(JoinRequest joinRequest) {
         memberRepository.save(joinRequest.toEntity());
@@ -64,10 +67,10 @@ public class MemberService {
 
     }
 
-    public Member getLoginMemberByLoginId(String loginId){
-        if(loginId == null) return null;
+    public Member getLoginMemberByLoginId(String login_id){
+        if(login_id == null) return null;
 
-        return memberRepository.findByLoginId(loginId);
+        return memberRepository.findByLoginId(login_id);
 
     }
     public MemberCntDto getUserCnt() {

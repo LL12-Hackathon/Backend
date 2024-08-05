@@ -25,7 +25,6 @@ public class JoinRequest {
         return Member.builder()
                 .loginId(this.loginId)
                 .password(this.password)
-                .name(this.name)
                 .role(MemberRole.USER)
                 .build();
     }

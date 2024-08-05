@@ -1,3 +1,4 @@
+// BoardDto.java
 package com.example.meetpro.dto.board;
 
 import com.example.meetpro.domain.board.Board;
@@ -26,8 +27,8 @@ public class BoardDto {
     public static BoardDto of(Board board) {
         return BoardDto.builder()
                 .id(board.getId())
-                .memberLoginId(board.getMember().getLoginId())
-                .memberNickname(board.getMember().getNickname())
+                .memberLoginId(board.getMemberDetails().getMember().getLoginId())
+                .memberNickname(board.getMemberDetails().getMember().getNickname())
                 .title(board.getTitle())
                 .body(board.getBody())
                 .createdAt(board.getCreatedAt())

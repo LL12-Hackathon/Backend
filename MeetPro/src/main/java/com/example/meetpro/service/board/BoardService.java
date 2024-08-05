@@ -1,16 +1,17 @@
 package com.example.meetpro.service.board;
 
-import com.example.meetpro.domain.Member;
+import com.example.meetpro.domain.MemberDetails;
 import com.example.meetpro.domain.MemberRole;
 import com.example.meetpro.domain.board.*;
 import com.example.meetpro.dto.board.BoardCntDto;
 import com.example.meetpro.dto.board.BoardCreateRequest;
 import com.example.meetpro.dto.board.BoardDto;
-import com.example.meetpro.repository.MemberRepository;
+import com.example.meetpro.repository.MemberDetailsRepository;
 import com.example.meetpro.repository.board.BoardRepository;
 import com.example.meetpro.repository.board.CommentRepository;
 import com.example.meetpro.repository.board.LikeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.java.Log;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
@@ -19,143 +20,146 @@ import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
+import org.springframework.dao.DataAccessException;
 
 @Service
 @RequiredArgsConstructor
 public class BoardService {
 
     private final BoardRepository boardRepository;
-    private final MemberRepository memberRepository;
+    private final MemberDetailsRepository memberDetailsRepository;
     private final LikeRepository likeRepository;
     private final CommentRepository commentRepository;
-//    private final S3UploadService s3UploadService;
-     private final UploadImageService uploadImageService; //=> 로컬 디렉토리에 저장할 때 사용 => S3UploadService 대신 사용
+    private final UploadImageService uploadImageService;
+
+    private static final Logger logger = Logger.getLogger(BoardService.class.getName());
+
+    public MemberDetails getMemberDetailsByLoginId(String loginId) {
+        return memberDetailsRepository.findByLoginId(loginId);
+    }
 
     public Page<Board> getBoardList(BoardCategory category, PageRequest pageRequest, String searchType, String keyword) {
-        if (searchType != null && keyword != null) {
-            if (searchType.equals("title")) {
-                return boardRepository.findAllByCategoryAndTitleContainsAndMemberRoleNot(category, keyword, MemberRole.ADMIN, pageRequest);
-            } else {
-                return boardRepository.findAllByCategoryAndMemberNicknameContainsAndMemberRoleNot(category, keyword, MemberRole.ADMIN, pageRequest);
+        try {
+            if (searchType != null && keyword != null) {
+                if (searchType.equals("title")) {
+                    return boardRepository.findAllByCategoryAndTitleContainsAndMemberDetailsMemberRoleNot(category, keyword, MemberRole.ADMIN, pageRequest);
+                } else {
+                    return boardRepository.findAllByCategoryAndMemberDetailsMemberNicknameContainsAndMemberDetailsMemberRoleNot(category, keyword, MemberRole.ADMIN, pageRequest);
+                }
             }
+            return boardRepository.findAllByCategoryAndMemberDetailsMemberRoleNot(category, MemberRole.ADMIN, pageRequest);
+        } catch (DataAccessException e) {
+            logger.severe("Error fetching board list: " + e.getMessage());
+            return Page.empty();
         }
-        return boardRepository.findAllByCategoryAndMemberRoleNot(category, MemberRole.ADMIN, pageRequest);
     }
 
     public List<Board> getNotice(BoardCategory category) {
-        return boardRepository.findAllByCategoryAndMemberRole(category, MemberRole.ADMIN);
+        try {
+            return boardRepository.findAllByCategoryAndMemberDetailsMemberRole(category, MemberRole.ADMIN);
+        } catch (DataAccessException e) {
+            logger.severe("Error fetching notices: " + e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     public BoardDto getBoard(Long boardId, String category) {
-        Optional<Board> optBoard = boardRepository.findById(boardId);
+        try {
+            Optional<Board> optBoard = boardRepository.findById(boardId);
 
-        // id에 해당하는 게시글이 없거나 카테고리가 일치하지 않으면 null return
-        if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
+            if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
+                return null;
+            }
+
+            return BoardDto.of(optBoard.get());
+        } catch (DataAccessException e) {
+            logger.severe("Error fetching board: " + e.getMessage());
             return null;
         }
-
-        return BoardDto.of(optBoard.get());
     }
 
     @Transactional
     public Long writeBoard(BoardCreateRequest req, BoardCategory category, String loginId, Authentication auth) throws IOException {
-        Member loginUser = memberRepository.findByLoginId(loginId);
+        try {
+            MemberDetails loginUser = memberDetailsRepository.findByLoginId(loginId);
+            logger.info("loginUser: " + loginUser);
+            Board savedBoard = boardRepository.save(req.toEntity(category, loginUser));
 
-        Board savedBoard = boardRepository.save(req.toEntity(category, loginUser));
-
-        UploadImage uploadImage = uploadImageService.saveImage(req.getUploadImage(), savedBoard);
-        if (uploadImage != null) {
-            savedBoard.setUploadImage(uploadImage);
-        }
-        return savedBoard.getId();
-    }
-
-    @Transactional
-    public Long editBoard(Long boardId, String category, BoardDto dto) throws IOException {
-        Optional<Board> optBoard = boardRepository.findById(boardId);
-
-        // id에 해당하는 게시글이 없거나 카테고리가 일치하지 않으면 null return
-        if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
-            return null;
-        }
-
-        Board board = optBoard.get();
-        // 게시글에 이미지가 있었으면 삭제
-        if (board.getUploadImage() != null) {
-            uploadImageService.deleteImage(board.getUploadImage());
-            board.setUploadImage(null);
-        }
-
-        UploadImage uploadImage = uploadImageService.saveImage(dto.getNewImage(), board);
-        if (uploadImage != null) {
-            board.setUploadImage(uploadImage);
-        }
-        board.update(dto);
-
-        return board.getId();
-    }
-
-    @Transactional
-    public Long deleteBoard(Long boardId, String category) throws IOException {
-        Optional<Board> optBoard = boardRepository.findById(boardId);
-
-        // id에 해당하는 게시글이 없거나 카테고리가 일치하지 않으면 null return
-        if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
-            return null;
-        }
-
-        Board board = optBoard.get();
-        Member boardUser = board.getMember();
-        boardUser.likeChange(boardUser.getReceivedLikeCnt() - board.getLikeCnt());
-        if (board.getUploadImage() != null) {
-            uploadImageService.deleteImage(board.getUploadImage());
-            board.setUploadImage(null);
-        }
-        boardRepository.deleteById(boardId);
-        return boardId;
-    }
-
-    public String getCategory(Long boardId) {
-        Board board = boardRepository.findById(boardId).get();
-        return board.getCategory().toString().toLowerCase();
-    }
-
-    public List<Board> findMyBoard(String category, String loginId) {
-        if (category.equals("board")) {
-            return boardRepository.findAllByMemberLoginId(loginId);
-        } else if (category.equals("like")) {
-            List<Like> likes = likeRepository.findAllByMemberLoginId(loginId);
-            List<Board> boards = new ArrayList<>();
-            for (Like like : likes) {
-                boards.add(like.getBoard());
-            }
-            return boards;
-        } else if (category.equals("comment")) {
-            List<Comment> comments = commentRepository.findAllByMemberLoginId(loginId);
-            List<Board> boards = new ArrayList<>();
-            HashSet<Long> commentIds = new HashSet<>();
-
-            for (Comment comment : comments) {
-                if (!commentIds.contains(comment.getBoard().getId())) {
-                    boards.add(comment.getBoard());
-                    commentIds.add(comment.getBoard().getId());
+            if (req.getUploadImage() != null) {
+                UploadImage uploadImage = uploadImageService.saveImage(req.getUploadImage(), savedBoard);
+                if (uploadImage != null) {
+                    savedBoard.setUploadImage(uploadImage);
                 }
             }
-            return boards;
+            return savedBoard.getId();
+        } catch (Exception e) {
+            logger.severe("Error writing board: " + e.getMessage());
+            throw new IOException("Database error occurred while writing board", e);
         }
-        return null;
     }
 
-    public BoardCntDto getBoardCnt(){
-        return BoardCntDto.builder()
-                .totalBoardCnt(boardRepository.count())
-                .totalNoticeCnt(boardRepository.countAllByMemberRole(MemberRole.ADMIN))
-                .totalCounselingCnt(boardRepository.countAllByCategoryAndMemberRoleNot(BoardCategory.COUNSELING, MemberRole.ADMIN))
-                .totalFreeCnt(boardRepository.countAllByCategoryAndMemberRoleNot(BoardCategory.FREE, MemberRole.ADMIN))
-                .totalQnACnt(boardRepository.countAllByCategoryAndMemberRoleNot(BoardCategory.FREE, MemberRole.ADMIN))
-                .build();
+    @Transactional
+    public Long deleteBoard(Long boardId, String category, String loginId) {
+        try {
+            Optional<Board> optBoard = boardRepository.findById(boardId);
+
+            if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
+                return null;
+            }
+
+            MemberDetails memberDetails = memberDetailsRepository.findByLoginId(loginId);
+            if (!optBoard.get().getMemberDetails().equals(memberDetails)) {
+                return null;
+            }
+
+            boardRepository.deleteById(boardId);
+            return boardId;
+        } catch (DataAccessException e) {
+            logger.severe("Error deleting board: " + e.getMessage());
+            return null;
+        }
+    }
+
+    @Transactional
+    public Long editBoard(Long boardId, String category, BoardDto dto, String loginId) throws IOException {
+        try {
+            Optional<Board> optBoard = boardRepository.findById(boardId);
+
+            if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
+                return null;
+            }
+
+            MemberDetails memberDetails = memberDetailsRepository.findByLoginId(loginId);
+            if (!optBoard.get().getMemberDetails().equals(memberDetails)) {
+                return null;
+            }
+
+            Board board = optBoard.get();
+            board.update(dto);
+
+            if (dto.getNewImage() != null) {
+                UploadImage uploadImage = uploadImageService.saveImage(dto.getNewImage(), board);
+                if (uploadImage != null) {
+                    board.setUploadImage(uploadImage);
+                }
+            }
+            return board.getId();
+        } catch (DataAccessException e) {
+            logger.severe("Error updating board: " + e.getMessage());
+            throw new IOException("Database error occurred while updating board", e);
+        }
+    }
+
+    public BoardCategory getCategory(Long boardId) {
+        try {
+            Optional<Board> optBoard = boardRepository.findById(boardId);
+            return optBoard.map(Board::getCategory).orElse(null);
+        } catch (DataAccessException e) {
+            logger.severe("Error fetching board category: " + e.getMessage());
+            return null;
+        }
     }
 }

@@ -1,28 +1,35 @@
+// Like.java
 package com.example.meetpro.domain.board;
 
-import com.example.meetpro.domain.Member;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
+import com.example.meetpro.domain.MemberDetails;
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
-@AllArgsConstructor
-@NoArgsConstructor
 @Builder
 @Getter
-@Table(name = "\"like\"")
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Like {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    private Member member;      // 좋아요를 누른 유저
+    @ManyToOne
+    @JoinColumn(name = "board_id")
+    private Board board;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    private Board board;    // 좋아요가 추가된 게시글
+    @ManyToOne
+    @JoinColumn(name = "member_details_id")
+    private MemberDetails memberDetails;
+
+    public static class LikeBuilder {
+        // Ensure this method exists
+        public LikeBuilder memberDetails(MemberDetails memberDetails) {
+            this.memberDetails = memberDetails;
+            return this;
+        }
+    }
 }

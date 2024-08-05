@@ -2,6 +2,7 @@ package com.example.meetpro.domain.board;
 
 import com.example.meetpro.domain.BaseEntity;
 import com.example.meetpro.domain.Member;
+import com.example.meetpro.domain.MemberDetails;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,6 +25,10 @@ public class Comment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     private Member member;      // 작성자
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_details_id")
+    private MemberDetails memberDetails; // 작성자 상세 정보
 
     @ManyToOne(fetch = FetchType.LAZY)
     private Board board;    // 댓글이 달린 게시판

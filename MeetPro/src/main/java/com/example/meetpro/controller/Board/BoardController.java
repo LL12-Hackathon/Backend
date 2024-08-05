@@ -1,5 +1,6 @@
 package com.example.meetpro.controller.Board;
 
+import com.example.meetpro.config.SecurityConfig;
 import com.example.meetpro.domain.board.BoardCategory;
 import com.example.meetpro.dto.board.BoardCreateRequest;
 import com.example.meetpro.dto.board.BoardDto;
@@ -10,6 +11,7 @@ import com.example.meetpro.service.board.CommentService;
 import com.example.meetpro.service.board.LikeService;
 import com.example.meetpro.service.board.UploadImageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.java.Log;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.logging.Logger;
 
 @Controller
 @RequestMapping("/boards")
@@ -82,17 +85,30 @@ public class BoardController {
 
     @PostMapping("/{category}")
     public String boardWrite(@PathVariable String category, @ModelAttribute BoardCreateRequest req,
-                             Authentication auth, Model model) throws IOException {
+                             Model model) throws IOException {
+
         BoardCategory boardCategory = BoardCategory.of(category);
+        Logger.getGlobal().info("카테고리 조회: " + boardCategory);
+
         if (boardCategory == null) {
+            Logger.getGlobal().info("카테고리가 존재하지 않습니다.");
             model.addAttribute("message", "카테고리가 존재하지 않습니다.");
             model.addAttribute("nextUrl", "/");
             return "printMessage";
         }
 
+        Authentication auth = SecurityConfig.getAuthentication();
+
+        if (auth == null) {
+            model.addAttribute("message", "로그인이 필요합니다.");
+            model.addAttribute("nextUrl", "/oauth-login/login");
+            return "printMessage";
+        }
+
+        Logger.getGlobal().info("Login-ID" + auth.getName());
+
         Long savedBoardId = boardService.writeBoard(req, boardCategory, auth.getName(), auth);
         model.addAttribute("message", savedBoardId + "번 글이 등록되었습니다.");
-
         model.addAttribute("nextUrl", "/boards/" + category + "/" + savedBoardId);
         return "printMessage";
     }
@@ -124,7 +140,15 @@ public class BoardController {
     @PostMapping("/{category}/{boardId}/edit")
     public String boardEdit(@PathVariable String category, @PathVariable Long boardId,
                             @ModelAttribute BoardDto dto, Model model) throws IOException {
-        Long editedBoardId = boardService.editBoard(boardId, category, dto);
+            Authentication auth = SecurityConfig.getAuthentication();
+
+            if (auth == null) {
+                model.addAttribute("message", "로그인이 필요합니다.");
+                model.addAttribute("nextUrl", "/oauth-login/login");
+                return "printMessage";
+            }
+
+            Long editedBoardId = boardService.editBoard(boardId, category, dto, auth.getName());
 
         if (editedBoardId == null) {
             model.addAttribute("message", "해당 게시글이 존재하지 않습니다.");
@@ -138,16 +162,16 @@ public class BoardController {
 
     @GetMapping("/{category}/{boardId}/delete")
     public String boardDelete(@PathVariable String category, @PathVariable Long boardId, Model model) throws IOException {
-        if (category.equals("greeting")) {
-            model.addAttribute("message", "가입인사는 삭제할 수 없습니다.");
-            model.addAttribute("nextUrl", "/boards/greeting");
+        Authentication auth = SecurityConfig.getAuthentication();
+
+        if (auth == null) {
+            model.addAttribute("message", "로그인이 필요합니다.");
+            model.addAttribute("nextUrl", "/oauth-login/login");
             return "printMessage";
         }
 
-        Long deletedBoardId = boardService.deleteBoard(boardId, category);
+        Long deletedBoardId = boardService.deleteBoard(boardId, category, auth.getName());
 
-        // id에 해당하는 게시글이 없거나 카테고리가 일치하지 않으면 에러 메세지 출력
-        // 게시글이 존재해 삭제했으면 삭제 완료 메세지 출력
         model.addAttribute("message", deletedBoardId == null ? "해당 게시글이 존재하지 않습니다" : deletedBoardId + "번 글이 삭제되었습니다.");
         model.addAttribute("nextUrl", "/boards/" + category);
         return "printMessage";

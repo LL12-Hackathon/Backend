@@ -36,7 +36,7 @@ public class UploadImageService {
     }
 
     public UploadImage saveImage(MultipartFile multipartFile, Board board) throws IOException {
-        if (multipartFile.isEmpty()) {
+        if (multipartFile == null || multipartFile.isEmpty()) {
             return null;
         }
 

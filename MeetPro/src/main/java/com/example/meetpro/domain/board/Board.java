@@ -1,7 +1,8 @@
+// Board.java
 package com.example.meetpro.domain.board;
 
 import com.example.meetpro.domain.BaseEntity;
-import com.example.meetpro.domain.Member;
+import com.example.meetpro.domain.MemberDetails;
 import com.example.meetpro.dto.board.BoardDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +10,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 @Entity
@@ -28,7 +32,12 @@ public class Board extends BaseEntity {
     private BoardCategory category; // 카테고리
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private Member member;      // 작성자
+    @JoinColumn(name = "member_details_id")
+    private MemberDetails memberDetails;      // 작성자
+
+    private String nickname;    // 작성자 닉네임
+
+    private LocalDateTime createdAt;     // 작성일
 
     @OneToMany(mappedBy = "board", orphanRemoval = true)
     private List<Like> likes;       // 좋아요
@@ -57,7 +66,4 @@ public class Board extends BaseEntity {
     public void setUploadImage(UploadImage uploadImage) {
         this.uploadImage = uploadImage;
     }
-
-
-
 }
