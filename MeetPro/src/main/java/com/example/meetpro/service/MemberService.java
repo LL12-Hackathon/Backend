@@ -1,11 +1,16 @@
 package com.example.meetpro.service;
 
+import com.example.meetpro.IResult;
 import com.example.meetpro.domain.Member;
 import com.example.meetpro.dto.JoinRequest;
 import com.example.meetpro.dto.LoginRequest;
+import com.example.meetpro.entities.UserEntity;
+import com.example.meetpro.enums.CommonResult;
+import com.example.meetpro.mappers.IMemberMapper;
 import com.example.meetpro.repository.MemberRepository;
+import com.example.meetpro.utils.CryptoUtils;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -13,11 +18,20 @@ import java.util.Optional;
 
 @Service
 @Transactional
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 public class MemberService {
 
     private final MemberRepository memberRepository;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
+    private final IMemberMapper memberMapper;
+
+//    @Autowired
+    @Autowired
+    public MemberService(MemberRepository memberRepository, BCryptPasswordEncoder bCryptPasswordEncoder, IMemberMapper memberMapper) {
+        this.memberRepository = memberRepository;
+        this.bCryptPasswordEncoder = bCryptPasswordEncoder;
+        this.memberMapper = memberMapper;
+    }
 
     public boolean checkLoginIdDuplicate(String loginId){
         return memberRepository.existsByLoginId(loginId);
@@ -62,8 +76,13 @@ public class MemberService {
 
     public Member getLoginMemberByLoginId(String loginId){
         if(loginId == null) return null;
-
         return memberRepository.findByLoginId(loginId);
+    }
 
+    public Enum<? extends IResult> register(UserEntity user) {
+      user.setPassword(CryptoUtils.hashSah512(user.getPassword()));
+        int result = memberMapper.insertUser(user);
+        // 결과에 따른 Enum 값 반환
+        return result > 0 ? CommonResult.SUCCESS : CommonResult.FAILURE;
     }
 }
