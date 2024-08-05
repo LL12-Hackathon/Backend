@@ -47,7 +47,7 @@ public class SecurityConfig {
 
         http
                 .csrf((auth) -> auth.disable());
-
+//        http.cors();
         return http.build();
     }
 
@@ -57,4 +57,6 @@ public class SecurityConfig {
 
         return new BCryptPasswordEncoder();
     }
+
+
 }
