@@ -1,165 +1,196 @@
 package com.example.meetpro.service.board;
 
-import com.example.meetpro.domain.MemberDetails;
-import com.example.meetpro.domain.MemberRole;
-import com.example.meetpro.domain.board.*;
-import com.example.meetpro.dto.board.BoardCntDto;
-import com.example.meetpro.dto.board.BoardCreateRequest;
-import com.example.meetpro.dto.board.BoardDto;
-import com.example.meetpro.repository.MemberDetailsRepository;
+import com.example.meetpro.entity.category.Category;
+import com.example.meetpro.entity.user.User;
 import com.example.meetpro.repository.board.BoardRepository;
-import com.example.meetpro.repository.board.CommentRepository;
-import com.example.meetpro.repository.board.LikeRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.java.Log;
+import com.example.meetpro.repository.board.LikeBoardRepository;
+import com.example.meetpro.repository.category.CategoryRepository;
+import com.example.meetpro.service.file.FileService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.Authentication;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import com.example.meetpro.dto.board.BoardCreateRequest;
+import com.example.meetpro.dto.board.BoardCreateResponse;
+import com.example.meetpro.dto.board.BoardFindAllWithPagingResponseDto;
+import com.example.meetpro.dto.board.BoardResponseDto;
+import com.example.meetpro.dto.board.BoardSimpleDto;
+import com.example.meetpro.dto.board.BoardUpdateRequest;
+import com.example.meetpro.dto.board.PageInfoDto;
+import com.example.meetpro.entity.board.Board;
+import com.example.meetpro.entity.board.Image;
+import com.example.meetpro.entity.board.LikeBoard;
 
-import jakarta.transaction.Transactional;
-import java.io.IOException;
-import java.util.ArrayList;
+import com.example.meetpro.exception.CategoryNotFoundException;
+import com.example.meetpro.exception.LikeHistoryNotfoundException;
+import com.example.meetpro.exception.MemberNotEqualsException;
+import com.example.meetpro.exception.BoardNotFoundException;
+
 import java.util.List;
-import java.util.Optional;
-import java.util.logging.Logger;
-import org.springframework.dao.DataAccessException;
+import java.util.stream.IntStream;
+
+import static java.util.stream.Collectors.toList;
 
 @Service
-@RequiredArgsConstructor
 public class BoardService {
 
+    private static final String SUCCESS_LIKE_BOARD = "좋아요 처리 완료";
+    private static final String SUCCESS_UNLIKE_BOARD = "좋아요 취소 완료";
+    private static final int RECOMMEND_SET_COUNT = 10;
+    private static final int PAGE_SIZE = 10;
+    private static final String SORTED_BY_ID = "id";
+
     private final BoardRepository boardRepository;
-    private final MemberDetailsRepository memberDetailsRepository;
-    private final LikeRepository likeRepository;
-    private final CommentRepository commentRepository;
-    private final UploadImageService uploadImageService;
+    private final FileService fileService;
+    private final LikeBoardRepository likeBoardRepository;
+    private final CategoryRepository categoryRepository;
 
-    private static final Logger logger = Logger.getLogger(BoardService.class.getName());
-
-    public MemberDetails getMemberDetailsByLoginId(String loginId) {
-        return memberDetailsRepository.findByLoginId(loginId);
-    }
-
-    public Page<Board> getBoardList(BoardCategory category, PageRequest pageRequest, String searchType, String keyword) {
-        try {
-            if (searchType != null && keyword != null) {
-                if (searchType.equals("title")) {
-                    return boardRepository.findAllByCategoryAndTitleContainsAndMemberDetailsMemberRoleNot(category, keyword, MemberRole.ADMIN, pageRequest);
-                } else {
-                    return boardRepository.findAllByCategoryAndMemberDetailsMemberNicknameContainsAndMemberDetailsMemberRoleNot(category, keyword, MemberRole.ADMIN, pageRequest);
-                }
-            }
-            return boardRepository.findAllByCategoryAndMemberDetailsMemberRoleNot(category, MemberRole.ADMIN, pageRequest);
-        } catch (DataAccessException e) {
-            logger.severe("Error fetching board list: " + e.getMessage());
-            return Page.empty();
-        }
-    }
-
-    public List<Board> getNotice(BoardCategory category) {
-        try {
-            return boardRepository.findAllByCategoryAndMemberDetailsMemberRole(category, MemberRole.ADMIN);
-        } catch (DataAccessException e) {
-            logger.severe("Error fetching notices: " + e.getMessage());
-            return new ArrayList<>();
-        }
-    }
-
-    public BoardDto getBoard(Long boardId, String category) {
-        try {
-            Optional<Board> optBoard = boardRepository.findById(boardId);
-
-            if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
-                return null;
-            }
-
-            return BoardDto.of(optBoard.get());
-        } catch (DataAccessException e) {
-            logger.severe("Error fetching board: " + e.getMessage());
-            return null;
-        }
+    public BoardService(final BoardRepository boardRepository, final FileService fileService, final LikeBoardRepository likeBoardRepository,  final CategoryRepository categoryRepository) {
+        this.boardRepository = boardRepository;
+        this.fileService = fileService;
+        this.likeBoardRepository = likeBoardRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @Transactional
-    public Long writeBoard(BoardCreateRequest req, BoardCategory category, String loginId, Authentication auth) throws IOException {
-        try {
-            MemberDetails loginUser = memberDetailsRepository.findByLoginId(loginId);
-            logger.info("loginUser: " + loginUser);
-            Board savedBoard = boardRepository.save(req.toEntity(category, loginUser));
+    public BoardCreateResponse createBoard(final BoardCreateRequest req, final int categoryId, final User user) {
+        List<Image> images = req.getImages().stream()
+                .map(image -> Image.from(image.getOriginalFilename()))
+                .collect(toList());
 
-            if (req.getUploadImage() != null) {
-                UploadImage uploadImage = uploadImageService.saveImage(req.getUploadImage(), savedBoard);
-                if (uploadImage != null) {
-                    savedBoard.setUploadImage(uploadImage);
-                }
-            }
-            return savedBoard.getId();
-        } catch (Exception e) {
-            logger.severe("Error writing board: " + e.getMessage());
-            throw new IOException("Database error occurred while writing board", e);
-        }
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(CategoryNotFoundException::new);
+
+        Board board = boardRepository.save(new Board(req.getTitle(), req.getContent(), user, category, images));
+
+        uploadImages(board.getImages(), req.getImages());
+        return BoardCreateResponse.toDto(board);
+    }
+
+    @Transactional(readOnly = true)
+    public BoardFindAllWithPagingResponseDto findAllBoards(final Integer page, final int categoryId) {
+        Page<Board> boards = makePageBoards(page, categoryId);
+        return responsePagingBoards(boards);
+    }
+
+    private BoardFindAllWithPagingResponseDto responsePagingBoards(final Page<Board> boards) {
+        List<BoardSimpleDto> boardSimpleDtoList = boards.stream()
+                .map(BoardSimpleDto::toDto)
+                .collect(toList());
+
+        return BoardFindAllWithPagingResponseDto.toDto(boardSimpleDtoList, new PageInfoDto(boards));
+    }
+
+    private Page<Board> makePageBoards(final Integer page, final int categoryId) {
+        PageRequest pageRequest = PageRequest.of(page, PAGE_SIZE, Sort.by(SORTED_BY_ID).descending());
+        return boardRepository.findAllByCategoryId(pageRequest, categoryId);
+    }
+
+    @Transactional(readOnly = true)
+    public BoardResponseDto findBoard(final Long id) {
+        Board board = boardRepository.findById(id)
+                .orElseThrow(BoardNotFoundException::new);
+
+        User user = board.getUser();
+        return BoardResponseDto.toDto(board, user.getNickname());
     }
 
     @Transactional
-    public Long deleteBoard(Long boardId, String category, String loginId) {
-        try {
-            Optional<Board> optBoard = boardRepository.findById(boardId);
+    public String updateLikeOfBoard(final Long id, final User user) {
+        Board board = boardRepository.findById(id)
+                .orElseThrow(BoardNotFoundException::new);
 
-            if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
-                return null;
-            }
-
-            MemberDetails memberDetails = memberDetailsRepository.findByLoginId(loginId);
-            if (!optBoard.get().getMemberDetails().equals(memberDetails)) {
-                return null;
-            }
-
-            boardRepository.deleteById(boardId);
-            return boardId;
-        } catch (DataAccessException e) {
-            logger.severe("Error deleting board: " + e.getMessage());
-            return null;
+        if (!hasLikeBoard(board, user)) {
+            board.increaseLikeCount();
+            return createLikeBoard(board, user);
         }
+
+        board.decreaseLikeCount();
+        return removeLikeBoard(board, user);
+    }
+
+    private String removeLikeBoard(final Board board, final User user) {
+        LikeBoard likeBoard = likeBoardRepository.findByBoardAndUser(board, user)
+                .orElseThrow(LikeHistoryNotfoundException::new);
+
+        likeBoardRepository.delete(likeBoard);
+
+        return SUCCESS_UNLIKE_BOARD;
+    }
+
+
+    @Transactional(readOnly = true)
+    public List<BoardSimpleDto> findBestBoards(final Pageable pageable) {
+        Page<Board> boards = boardRepository.findByLikedGreaterThanEqual(pageable, RECOMMEND_SET_COUNT);
+
+        return boards.stream()
+                .map(BoardSimpleDto::toDto)
+                .collect(toList());
     }
 
     @Transactional
-    public Long editBoard(Long boardId, String category, BoardDto dto, String loginId) throws IOException {
-        try {
-            Optional<Board> optBoard = boardRepository.findById(boardId);
+    public BoardResponseDto editBoard(final Long id, final BoardUpdateRequest req, final User user) {
+        Board board = boardRepository.findById(id)
+                .orElseThrow(BoardNotFoundException::new);
 
-            if (optBoard.isEmpty() || !optBoard.get().getCategory().toString().equalsIgnoreCase(category)) {
-                return null;
-            }
+        validateBoardOwner(user, board);
 
-            MemberDetails memberDetails = memberDetailsRepository.findByLoginId(loginId);
-            if (!optBoard.get().getMemberDetails().equals(memberDetails)) {
-                return null;
-            }
+        Board.ImageUpdatedResult result = board.update(req);
 
-            Board board = optBoard.get();
-            board.update(dto);
+        uploadImages(result.getAddedImages(), result.getAddedImageFiles());
+        deleteImages(result.getDeletedImages());
 
-            if (dto.getNewImage() != null) {
-                UploadImage uploadImage = uploadImageService.saveImage(dto.getNewImage(), board);
-                if (uploadImage != null) {
-                    board.setUploadImage(uploadImage);
-                }
-            }
-            return board.getId();
-        } catch (DataAccessException e) {
-            logger.severe("Error updating board: " + e.getMessage());
-            throw new IOException("Database error occurred while updating board", e);
+        return BoardResponseDto.toDto(board, user.getNickname());
+    }
+
+    @Transactional
+    public void deleteBoard(final Long boardId, final User user) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(BoardNotFoundException::new);
+
+        validateBoardOwner(user, board);
+        boardRepository.delete(board);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BoardSimpleDto> searchBoard(final String keyword, final Pageable pageable) {
+        Page<Board> boards = boardRepository.findByTitleContaining(keyword, pageable);
+
+        return boards.stream()
+                .map(BoardSimpleDto::toDto)
+                .collect(toList());
+    }
+
+    private void uploadImages(final List<Image> uploadedImages, final List<MultipartFile> fileImages) {
+        IntStream.range(0, uploadedImages.size())
+                .forEach(uploadedImage -> fileService.upload(
+                        fileImages.get(uploadedImage),
+                        uploadedImages.get(uploadedImage).getUniqueName())
+                );
+    }
+
+    private void deleteImages(final List<Image> deletedImages) {
+        deletedImages.forEach(deletedImage -> fileService.delete(deletedImage.getUniqueName()));
+    }
+
+    public void validateBoardOwner(final User user, final Board board) {
+        if (!user.equals(board.getUser())) {
+            throw new MemberNotEqualsException();
         }
     }
 
-    public BoardCategory getCategory(Long boardId) {
-        try {
-            Optional<Board> optBoard = boardRepository.findById(boardId);
-            return optBoard.map(Board::getCategory).orElse(null);
-        } catch (DataAccessException e) {
-            logger.severe("Error fetching board category: " + e.getMessage());
-            return null;
-        }
+    public String createLikeBoard(final Board board, final User user) {
+        LikeBoard likeBoard = new LikeBoard(board, user);
+        likeBoardRepository.save(likeBoard);
+        return SUCCESS_LIKE_BOARD;
+    }
+
+    public boolean hasLikeBoard(final Board board, final User user) {
+        return likeBoardRepository.findByBoardAndUser(board, user)
+                .isPresent();
     }
 }
+

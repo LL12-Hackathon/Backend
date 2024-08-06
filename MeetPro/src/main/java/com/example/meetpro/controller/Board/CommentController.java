@@ -1,46 +1,49 @@
 package com.example.meetpro.controller.Board;
 
-import com.example.meetpro.dto.board.CommentCreateRequest;
-import com.example.meetpro.service.board.BoardService;
-import com.example.meetpro.service.board.CommentService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import com.example.meetpro.dto.comment.CommentCreateRequest;
+import com.example.meetpro.dto.comment.CommentReadCondition;
+import com.example.meetpro.service.comment.CommentService;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-@Controller
-@RequestMapping("/comments")
-@RequiredArgsConstructor
+import com.example.meetpro.global.jwt.util.JwtAuth;
+import com.example.meetpro.response.Response;
+import com.example.meetpro.entity.user.User;
+
+@Api(value = "Comment Controller", tags = "Comment ")
+@RestController
+@RequestMapping("/api")
 public class CommentController {
 
     private final CommentService commentService;
-    private final BoardService boardService;
 
-    @PostMapping("/{boardId}")
-    public String addComments(@PathVariable Long boardId, @ModelAttribute CommentCreateRequest req,
-                              Authentication auth, Model model) {
-        commentService.writeComment(boardId, req, auth.getName());
-
-        model.addAttribute("message", "댓글이 추가되었습니다.");
-        model.addAttribute("nextUrl", "/boards/" + boardService.getCategory(boardId) + "/" + boardId);
-        return "printMessage";
+    public CommentController(final CommentService commentService) {
+        this.commentService = commentService;
     }
 
-    @PostMapping("/{commentId}/edit")
-    public String editComment(@PathVariable Long commentId, @ModelAttribute CommentCreateRequest req,
-                              Authentication auth, Model model) {
-        Long boardId = commentService.editComment(commentId, req.getBody(), auth.getName());
-        model.addAttribute("message", boardId == null? "잘못된 요청입니다." : "댓글이 수정 되었습니다.");
-        model.addAttribute("nextUrl", "/boards/" + boardService.getCategory(boardId) + "/" + boardId);
-        return "printMessage";
+    @ApiOperation(value = "댓글 목록 조회", notes = "댓글을 조회 합니다.")
+    @GetMapping("/comments")
+    @ResponseStatus(HttpStatus.OK)
+    public Response findAll(@Valid final CommentReadCondition condition) {
+        return Response.success(commentService.findAllComments(condition));
     }
 
-    @GetMapping("/{commentId}/delete")
-    public String deleteComment(@PathVariable Long commentId, Authentication auth, Model model) {
-        Long boardId = commentService.deleteComment(commentId, auth.getName());
-        model.addAttribute("message", boardId == null? "작성자만 삭제 가능합니다." : "댓글이 삭제 되었습니다.");
-        model.addAttribute("nextUrl", "/boards/" + boardService.getCategory(boardId) + "/" + boardId);
-        return "printMessage";
+    @ApiOperation(value = "댓글 작성", notes = "댓글을 작성 합니다.")
+    @PostMapping("/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Response create(@Valid @RequestBody final CommentCreateRequest req, final @JwtAuth User user) {
+        return Response.success(commentService.createComment(req, user));
+    }
+
+    @ApiOperation(value = "댓글 삭제", notes = "댓글을 삭제 합니다.")
+    @DeleteMapping("/comments/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public Response delete(@ApiParam(value = "댓글 id", required = true) @PathVariable final Long id, @JwtAuth User user) {
+        commentService.deleteComment(id, user);
+        return Response.success();
     }
 }
